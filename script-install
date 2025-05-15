@@ -1,15 +1,19 @@
-#!/bin/bash
-
-set -e
+#!/bin/sh
 
 # === CONFIG ===
-WINE_VERSION="1.3.11"
+WINE_VERSION=1.3.11
 SRC_DIR="$HOME/src"
 PREFIX="/opt/wine-$WINE_VERSION"
-NUM_CORES=$(nproc)
 
-# === PREPARE SYSTEM ===
-echo "==> Updating and installing dependencies..."
+# Get number of cores (fallback to 1 if nproc not available)
+if command -v nproc >/dev/null 2>&1; then
+  NUM_CORES=$(nproc)
+else
+  NUM_CORES=1
+fi
+
+# === UPDATE SYSTEM AND INSTALL DEPENDENCIES ===
+echo "==> Updating and installing build dependencies..."
 
 sudo apt-get update
 sudo apt-get install -y \
@@ -18,52 +22,60 @@ sudo apt-get install -y \
   libgl1-mesa-dev libglu1-mesa-dev libfontconfig1-dev libjpeg-dev \
   libpng-dev libcups2-dev libdbus-1-dev libgsm1-dev libldap2-dev \
   libopenal-dev libv4l-dev libxcomposite-dev libxml2-dev libxslt1-dev \
-  libasound2-dev libgphoto2-dev libgnutls28-dev libxinerama-dev \
-  libxvidcore-dev libmpg123-dev libxdamage-dev libfaudio-dev \
-  libncurses-dev zlib1g-dev xorg openbox wget xinit
+  libasound2-dev libgphoto2-dev libgnutls28-dev libxvidcore-dev \
+  libmpg123-dev libxdamage-dev libfaudio-dev libncurses-dev zlib1g-dev \
+  xorg openbox wget xinit
 
-# === CREATE SRC DIR ===
+# === PREPARE SOURCE DIR ===
 mkdir -p "$SRC_DIR"
 cd "$SRC_DIR"
 
 # === DOWNLOAD WINE ===
-if [ ! -f "wine-$WINE_VERSION.tar.bz2" ]; then
-  echo "==> Downloading Wine $WINE_VERSION source..."
-  wget -O "wine-$WINE_VERSION.tar.bz2" \
-    "https://source.winehq.org/patches/data/$WINE_VERSION/wine-$WINE_VERSION.tar.bz2"
+WINE_ARCHIVE="wine-$WINE_VERSION.tar.bz2"
+WINE_URL="https://source.winehq.org/patches/data/$WINE_VERSION/$WINE_ARCHIVE"
+
+if [ ! -f "$WINE_ARCHIVE" ]; then
+  echo "==> Downloading Wine $WINE_VERSION..."
+  wget -O "$WINE_ARCHIVE" "$WINE_URL" || {
+    echo "Error: Failed to download $WINE_URL"
+    exit 1
+  }
 fi
 
 # === EXTRACT ===
 if [ ! -d "wine-$WINE_VERSION" ]; then
   echo "==> Extracting Wine..."
-  tar -xjf "wine-$WINE_VERSION.tar.bz2"
+  tar -xjf "$WINE_ARCHIVE"
 fi
 
 # === BUILD ===
 cd "wine-$WINE_VERSION"
+
 echo "==> Configuring Wine..."
 ./configure --prefix="$PREFIX"
 
-echo "==> Building Wine with $NUM_CORES cores..."
+echo "==> Building Wine using $NUM_CORES core(s)..."
 make -j"$NUM_CORES"
 
 echo "==> Installing Wine to $PREFIX..."
-make install
+sudo make install
 
-# === SET UP .xinitrc ===
-echo "==> Creating .xinitrc to launch openbox and winefile..."
-cat <<EOF > "$HOME/.xinitrc"
+# === SETUP XINITRC ===
+echo "==> Creating .xinitrc..."
+cat > "$HOME/.xinitrc" <<EOF
 #!/bin/sh
 openbox-session &
 sleep 2
 export WINEPREFIX=\$HOME/.wine
-export PATH="$PREFIX/bin:\$PATH"
+export PATH=$PREFIX/bin:\$PATH
 winefile
 EOF
+
 chmod +x "$HOME/.xinitrc"
 
-echo "==> DONE. You can start X with:"
-echo "       startx"
+# === DONE ===
 echo ""
-echo "Wine $WINE_VERSION is installed at: $PREFIX"
-echo "Winefile will launch when X starts."
+echo "✅ Wine $WINE_VERSION installation complete."
+echo "To launch Openbox and Wine, run:"
+echo "    startx"
+echo ""

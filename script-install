@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -e
+
+WINE_VERSION="1.3.11"
+INSTALL_DIR="$HOME/wine-$WINE_VERSION-install"
+BUILD_DIR="$HOME/wine-$WINE_VERSION-build"
+SRC_DIR="$HOME/wine-$WINE_VERSION-src"
+
+echo "==> Installing dependencies..."
+sudo apt update
+sudo apt install -y build-essential flex bison \
+    libfreetype6-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
+    libxcomposite-dev libxrender-dev libxext-dev libx11-dev libgl1-mesa-dev \
+    libxml2-dev libjpeg-dev libpng-dev libtiff-dev libsane-dev libcups2-dev \
+    libgsm1-dev libmpg123-dev libxslt1-dev libfaudio-dev libgphoto2-dev \
+    libv4l-dev libgstreamer-plugins-base1.0-dev libudev-dev libdbus-1-dev \
+    libxdamage-dev libxfixes-dev libxpm-dev libavcodec-dev libavformat-dev \
+    libswscale-dev wget tar
+
+echo "==> Creating build directories..."
+mkdir -p "$BUILD_DIR" "$SRC_DIR" "$INSTALL_DIR"
+
+cd "$SRC_DIR"
+if [ ! -f "wine-$WINE_VERSION.tar.bz2" ]; then
+    echo "==> Downloading Wine $WINE_VERSION source..."
+    wget "https://dl.winehq.org/wine/source/1.3/wine-$WINE_VERSION.tar.bz2"
+fi
+
+echo "==> Extracting source..."
+tar -xf "wine-$WINE_VERSION.tar.bz2" -C "$BUILD_DIR" --strip-components=1
+
+cd "$BUILD_DIR"
+
+echo "==> Cleaning previous builds (if any)..."
+make distclean || true
+
+echo "==> Configuring build for 32-bit system..."
+./configure --enable-win16 --prefix="$INSTALL_DIR"
+
+echo "==> Building Wine (this may take a while)..."
+make -j$(nproc)
+
+echo "==> Installing Wine to: $INSTALL_DIR"
+make install
+
+echo "==> Build complete."
+echo "To run Wine, use:"
+echo "$INSTALL_DIR/bin/winecfg"

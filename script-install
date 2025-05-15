@@ -2,56 +2,68 @@
 
 set -e
 
+# === CONFIG ===
 WINE_VERSION="1.3.11"
-INSTALL_DIR="$HOME/wine-$WINE_VERSION-install"
-BUILD_DIR="$HOME/wine-$WINE_VERSION-build"
-SRC_DIR="$HOME/wine-$WINE_VERSION-src"
+SRC_DIR="$HOME/src"
+PREFIX="/opt/wine-$WINE_VERSION"
+NUM_CORES=$(nproc)
 
-echo "==> Installing system dependencies (Openbox, Xorg, build tools, etc)..."
-sudo apt update
-sudo apt install -y \
-    build-essential flex bison \
-    xorg openbox tint2 lxterminal xterm feh \
-    wget tar \
-    libfreetype6-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
-    libxcomposite-dev libxrender-dev libxext-dev libx11-dev libgl1-mesa-dev \
-    libxml2-dev libjpeg-dev libpng-dev libtiff-dev libsane-dev libcups2-dev \
-    libgsm1-dev libmpg123-dev libxslt1-dev libfaudio-dev libgphoto2-dev \
-    libv4l-dev libgstreamer-plugins-base1.0-dev libudev-dev libdbus-1-dev \
-    libxdamage-dev libxfixes-dev libxpm-dev libavcodec-dev libavformat-dev \
-    libswscale-dev
+# === PREPARE SYSTEM ===
+echo "==> Updating and installing dependencies..."
 
-echo "==> Creating build directories..."
-mkdir -p "$BUILD_DIR" "$SRC_DIR" "$INSTALL_DIR"
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential flex bison libx11-dev libfreetype6-dev libxcursor-dev \
+  libxrandr-dev libxi-dev libxinerama-dev libxext-dev libxrender-dev \
+  libgl1-mesa-dev libglu1-mesa-dev libfontconfig1-dev libjpeg-dev \
+  libpng-dev libcups2-dev libdbus-1-dev libgsm1-dev libldap2-dev \
+  libopenal-dev libv4l-dev libxcomposite-dev libxml2-dev libxslt1-dev \
+  libasound2-dev libgphoto2-dev libgnutls28-dev libxinerama-dev \
+  libxvidcore-dev libmpg123-dev libxdamage-dev libfaudio-dev \
+  libncurses-dev zlib1g-dev xorg openbox wget xinit
 
+# === CREATE SRC DIR ===
+mkdir -p "$SRC_DIR"
 cd "$SRC_DIR"
+
+# === DOWNLOAD WINE ===
 if [ ! -f "wine-$WINE_VERSION.tar.bz2" ]; then
-    echo "==> Downloading Wine $WINE_VERSION source..."
-    wget "https://dl.winehq.org/wine/source/1.3/wine-$WINE_VERSION.tar.bz2"
+  echo "==> Downloading Wine $WINE_VERSION source..."
+  wget -O "wine-$WINE_VERSION.tar.bz2" \
+    "https://source.winehq.org/patches/data/$WINE_VERSION/wine-$WINE_VERSION.tar.bz2"
 fi
 
-echo "==> Extracting source..."
-tar -xf "wine-$WINE_VERSION.tar.bz2" -C "$BUILD_DIR" --strip-components=1
+# === EXTRACT ===
+if [ ! -d "wine-$WINE_VERSION" ]; then
+  echo "==> Extracting Wine..."
+  tar -xjf "wine-$WINE_VERSION.tar.bz2"
+fi
 
-cd "$BUILD_DIR"
+# === BUILD ===
+cd "wine-$WINE_VERSION"
+echo "==> Configuring Wine..."
+./configure --prefix="$PREFIX"
 
-echo "==> Cleaning previous builds (if any)..."
-make distclean || true
+echo "==> Building Wine with $NUM_CORES cores..."
+make -j"$NUM_CORES"
 
-echo "==> Configuring Wine build for 32-bit system..."
-./configure --enable-win16 --prefix="$INSTALL_DIR"
-
-echo "==> Building Wine (this may take a while)..."
-make -j$(nproc)
-
-echo "==> Installing Wine to: $INSTALL_DIR"
+echo "==> Installing Wine to $PREFIX..."
 make install
 
-echo "==> All done!"
+# === SET UP .xinitrc ===
+echo "==> Creating .xinitrc to launch openbox and winefile..."
+cat <<EOF > "$HOME/.xinitrc"
+#!/bin/sh
+openbox-session &
+sleep 2
+export WINEPREFIX=\$HOME/.wine
+export PATH="$PREFIX/bin:\$PATH"
+winefile
+EOF
+chmod +x "$HOME/.xinitrc"
 
-echo
-echo "To start Openbox (from a virtual terminal):"
-echo "  startx"
-echo
-echo "To run Wine:"
-echo "  $INSTALL_DIR/bin/winecfg"
+echo "==> DONE. You can start X with:"
+echo "       startx"
+echo ""
+echo "Wine $WINE_VERSION is installed at: $PREFIX"
+echo "Winefile will launch when X starts."

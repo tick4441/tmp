@@ -7,16 +7,19 @@ INSTALL_DIR="$HOME/wine-$WINE_VERSION-install"
 BUILD_DIR="$HOME/wine-$WINE_VERSION-build"
 SRC_DIR="$HOME/wine-$WINE_VERSION-src"
 
-echo "==> Installing dependencies..."
+echo "==> Installing system dependencies (Openbox, Xorg, build tools, etc)..."
 sudo apt update
-sudo apt install -y build-essential flex bison \
+sudo apt install -y \
+    build-essential flex bison \
+    xorg openbox tint2 lxterminal xterm feh \
+    wget tar \
     libfreetype6-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
     libxcomposite-dev libxrender-dev libxext-dev libx11-dev libgl1-mesa-dev \
     libxml2-dev libjpeg-dev libpng-dev libtiff-dev libsane-dev libcups2-dev \
     libgsm1-dev libmpg123-dev libxslt1-dev libfaudio-dev libgphoto2-dev \
     libv4l-dev libgstreamer-plugins-base1.0-dev libudev-dev libdbus-1-dev \
     libxdamage-dev libxfixes-dev libxpm-dev libavcodec-dev libavformat-dev \
-    libswscale-dev wget tar
+    libswscale-dev
 
 echo "==> Creating build directories..."
 mkdir -p "$BUILD_DIR" "$SRC_DIR" "$INSTALL_DIR"
@@ -35,7 +38,7 @@ cd "$BUILD_DIR"
 echo "==> Cleaning previous builds (if any)..."
 make distclean || true
 
-echo "==> Configuring build for 32-bit system..."
+echo "==> Configuring Wine build for 32-bit system..."
 ./configure --enable-win16 --prefix="$INSTALL_DIR"
 
 echo "==> Building Wine (this may take a while)..."
@@ -44,6 +47,11 @@ make -j$(nproc)
 echo "==> Installing Wine to: $INSTALL_DIR"
 make install
 
-echo "==> Build complete."
-echo "To run Wine, use:"
-echo "$INSTALL_DIR/bin/winecfg"
+echo "==> All done!"
+
+echo
+echo "To start Openbox (from a virtual terminal):"
+echo "  startx"
+echo
+echo "To run Wine:"
+echo "  $INSTALL_DIR/bin/winecfg"
